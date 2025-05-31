@@ -154,7 +154,8 @@ if (empty($all_profiles)) {
 
     echo "<div class='center' style='margin-top:20px;'>";
     echo "<input type='hidden' name='_glpi_csrf_token' value='" . Session::getNewCSRFToken() . "'>";
-    echo "<input type='submit' name='save_config' value="" . _sx('button', 'Save configuration') . "" class='submit'>";
+    $save_button_text = _sx('button', 'Save configuration');
+    echo "<input type='submit' name='save_config' value='" . htmlspecialchars($save_button_text, ENT_QUOTES, 'UTF-8') . "' class='submit'>";
     echo "</div>";
 
 }
