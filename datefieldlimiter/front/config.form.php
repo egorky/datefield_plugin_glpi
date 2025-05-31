@@ -39,7 +39,7 @@ if ($result_configs && $DB->numrows($result_configs) > 0) {
 }
 
 if (isset($_POST['save_config'])) {
-    Session::checkCSRF($_POST);
+    Html::checkCSRF();
 
     // Clear existing configurations first
     $DB->query("DELETE FROM `glpi_plugin_datefieldlimiter_configs`"); // Simple approach for now
@@ -107,6 +107,10 @@ if (empty($all_profiles)) {
 } else {
     echo "<table class='tab_cadre_fixe responsive-table'>";
     echo "<thead>";
+    // Note: The user's prompt mentioned line 156 for token generation,
+    // but in the provided full script, it's closer to line 150 after the table.
+    // The context below is the </table> and the div with the CSRF token and button.
+    // This should correctly target the CSRF generation line.
     echo "<tr>";
     echo "<th>" . __('Profile') . "</th>";
     echo "<th>" . __('Predefined Fields to Limit') . "</th>";
@@ -153,7 +157,7 @@ if (empty($all_profiles)) {
     echo "</table>";
 
     echo "<div class='center' style='margin-top:20px;'>";
-    echo "<input type='hidden' name='_glpi_csrf_token' value='" . Session::getNewCSRFToken() . "'>";
+    echo Html::generateCSRFField();
     $save_button_text = _sx('button', 'Save configuration');
     echo "<input type='submit' name='save_config' value='" . htmlspecialchars($save_button_text, ENT_QUOTES, 'UTF-8') . "' class='submit'>";
     echo "</div>";
