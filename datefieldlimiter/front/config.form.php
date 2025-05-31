@@ -8,6 +8,7 @@ if (!Session::haveRight('config', UPDATE)) {
 }
 
 global $DB;
+error_log("DateFieldLimiter DEBUG: DB object type in config: " . (is_object($DB) ? get_class($DB) : 'Not an object'));
 $plugin_name = 'datefieldlimiter';
 $config_table = 'glpi_plugin_datefieldlimiter_configs';
 
@@ -93,8 +94,33 @@ echo "</div>";
 echo "<form name='datefieldlimiter_config' method='post' action='config.form.php'>";
 
 // THIS IS THE LINE THAT WILL BE CHANGED IN THE NEXT STEP
-$profile_obj = new Profile();
-$all_profiles = $profile_obj->find([]);
+// $profile_obj = new Profile();
+// $all_profiles = $profile_obj->find([]);
+error_log("DateFieldLimiter DEBUG: Profile class exists in config? " . (class_exists('Profile') ? 'Yes' : 'No'));
+error_log("DateFieldLimiter DEBUG: Attempting Profile::getAllIDs()");
+$profile_ids = Profile::getAllIDs(); // This is a static method
+$all_profiles = [];
+
+if (is_array($profile_ids) && !empty($profile_ids)) {
+    // Profile::getAllIDs() typically returns an array [id => name] or [id => id]
+    // We need to ensure we are iterating correctly. If IDs are keys:
+    $ids_to_fetch = array_keys($profile_ids);
+    error_log("DateFieldLimiter DEBUG: Profile IDs found (from keys): " . implode(', ', $ids_to_fetch));
+
+    foreach ($ids_to_fetch as $pid) {
+        $profile_obj_single = new Profile();
+        if ($profile_obj_single->getFromDB($pid)) {
+            $all_profiles[] = ['id' => $pid, 'name' => $profile_obj_single->getField('name')];
+        } else {
+            error_log("DateFieldLimiter DEBUG: Failed to getFromDB for profile ID: " . $pid);
+        }
+    }
+    error_log("DateFieldLimiter DEBUG: Processed profiles list: " . count($all_profiles) . " profiles fetched.");
+} else if (is_array($profile_ids) && empty($profile_ids)) {
+    error_log("DateFieldLimiter DEBUG: Profile::getAllIDs() returned an empty array.");
+} else {
+    error_log("DateFieldLimiter DEBUG: Profile::getAllIDs() did not return an array or failed. Return value: " . print_r($profile_ids, true));
+}
 $predefined_fields = ['planned_start_date', 'planned_end_date', 'begin_date', 'end_date'];
 
 echo "<!-- DEBUG: DateFieldLimiter - Before profiles table -->";
