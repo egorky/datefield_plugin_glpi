@@ -138,21 +138,21 @@ if (is_array($all_profiles) && count($all_profiles) > 0) {
         $profile_name = $profile['name'];
 
         echo "<tr>";
-        echo "<td>" . htmlspecialchars($profile_name) . "</td>";
+        echo "<td>" . htmlspecialchars($profile_name, ENT_QUOTES, 'UTF-8') . "</td>";
 
         echo "<td>";
         foreach ($predefined_fields as $field_name) {
             $is_checked = isset($loaded_config[$profile_id][$field_name]);
             echo "<label style='display: block; margin-bottom: 5px;'>";
             echo "<input type='checkbox' name='profile_fields[{$profile_id}][predefined][]' value='{$field_name}'" . ($is_checked ? " checked='checked'" : "") . "> ";
-            echo htmlspecialchars($field_name);
+            echo htmlspecialchars($field_name, ENT_QUOTES, 'UTF-8');
             echo "</label>";
         }
         echo "</td>";
 
         echo "<td>";
         $custom_field_text = isset($loaded_custom_fields[$profile_id]) ? $loaded_custom_fields[$profile_id] : '';
-        echo "<textarea name='profile_fields[{$profile_id}][custom]' rows='4' cols='50' style='width:90%;'>" . htmlspecialchars($custom_field_text) . "</textarea>";
+        echo "<textarea name='profile_fields[{$profile_id}][custom]' rows='4' cols='50' style='width:90%;'>" . htmlspecialchars($custom_field_text, ENT_QUOTES, 'UTF-8') . "</textarea>";
         echo "</td>";
         echo "</tr>";
     }
