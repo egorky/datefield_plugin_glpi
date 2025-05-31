@@ -92,7 +92,9 @@ echo "</div>";
 
 echo "<form name='datefieldlimiter_config' method='post' action='config.form.php'>";
 
-$all_profiles = getAllData('glpi_profiles');
+// THIS IS THE LINE THAT WILL BE CHANGED IN THE NEXT STEP
+$profile_obj = new Profile();
+$all_profiles = $profile_obj->find([]);
 $predefined_fields = ['planned_start_date', 'planned_end_date', 'begin_date', 'end_date'];
 
 echo "<!-- DEBUG: DateFieldLimiter - Before profiles table -->";
@@ -115,7 +117,7 @@ if (is_array($all_profiles) && count($all_profiles) > 0) {
         echo "<td>";
         foreach ($predefined_fields as $field_name) {
             $is_checked = isset($loaded_config[$profile_id][$field_name]);
-            echo "<label style='display: block; margin-bottom: 5px;'>"; // Added style for better spacing
+            echo "<label style='display: block; margin-bottom: 5px;'>";
             echo "<input type='checkbox' name='profile_fields[{$profile_id}][predefined][]' value='{$field_name}'" . ($is_checked ? " checked='checked'" : "") . "> ";
             echo htmlspecialchars($field_name);
             echo "</label>";
