@@ -4,8 +4,8 @@ include ("../../../inc/includes.php");
 
 $plugin_name = "datefieldlimiter";
 
-// Check if the user has 'plugin' rights (or specific rights for this plugin if defined)
-if (!Session::haveRight('plugin', READ)) {
+// Check if the user has rights to update configuration
+if (!Session::haveRight('config', UPDATE)) {
     Html::displayRightError();
 }
 
