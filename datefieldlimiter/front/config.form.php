@@ -1,177 +1,166 @@
 <?php
-require_once '../../../inc/includes.php';
 
-Html::header(__('Date Field Limiter Configuration', 'datefieldlimiter'), $_SERVER['PHP_SELF'], 'config', 'plugins', 'datefieldlimiter');
+include ("../../../inc/includes.php");
 
+$plugin_name = "datefieldlimiter";
+
+// Check if the user has rights to update configuration
 if (!Session::haveRight('config', UPDATE)) {
     Html::displayRightError();
 }
 
-global $DB;
-error_log("DateFieldLimiter DEBUG: DB object type in config: " . (is_object($DB) ? get_class($DB) : 'Not an object'));
-$plugin_name = 'datefieldlimiter';
-$config_table = 'glpi_plugin_datefieldlimiter_configs';
-
-// Load existing configuration
-$loaded_config = [];
-$loaded_custom_fields = []; // Store custom fields separately: $loaded_custom_fields[profile_id] = "field1
-field2";
-
-$query = "SELECT `profiles_id`, `field_name` FROM `{$config_table}`";
-if ($result = $DB->query($query)) {
-    $predefined_fields_list = ['planned_start_date', 'planned_end_date', 'begin_date', 'end_date'];
-    while ($data = $DB->fetchAssoc($result)) {
-        if (in_array($data['field_name'], $predefined_fields_list)) {
-            $loaded_config[$data['profiles_id']][$data['field_name']] = true;
-        } else {
-            if (!isset($loaded_custom_fields[$data['profiles_id']])) {
-                $loaded_custom_fields[$data['profiles_id']] = '';
-            }
-            $loaded_custom_fields[$data['profiles_id']] .= $data['field_name'] . "
-";
-        }
-    }
-}
-// Trim trailing newline from custom fields
-foreach ($loaded_custom_fields as $prof_id => $fields_text) {
-    $loaded_custom_fields[$prof_id] = trim($fields_text);
-}
-
-
-// Handle form submission
-if (isset($_POST['save_config'])) {
-    if (Session::checkCSRFToken($_POST)) {
-        // Clear existing config
-        $DB->delete($config_table, []); // Empty WHERE clause deletes all rows
-
-        if (isset($_POST['profile_fields']) && is_array($_POST['profile_fields'])) {
-            foreach ($_POST['profile_fields'] as $profile_id => $fields) {
-                $profile_id = intval($profile_id);
-
-                // Save predefined fields
-                if (isset($fields['predefined']) && is_array($fields['predefined'])) {
-                    foreach ($fields['predefined'] as $field_name) {
-                        if (!empty($field_name)) {
-                             $DB->insert($config_table, [
-                                'profiles_id' => $profile_id,
-                                'field_name'  => $DB->escape(trim($field_name))
-                            ]);
-                        }
-                    }
-                }
-
-                // Save custom fields
-                if (isset($fields['custom']) && !empty($fields['custom'])) {
-                    $custom_field_names = explode("
-", $fields['custom']);
-                    foreach ($custom_field_names as $field_name) {
-                        $trimmed_field_name = trim($field_name);
-                        if (!empty($trimmed_field_name)) {
-                            $DB->insert($config_table, [
-                                'profiles_id' => $profile_id,
-                                'field_name'  => $DB->escape($trimmed_field_name)
-                            ]);
-                        }
-                    }
-                }
-            }
-        }
-        Session::addMessageAfterRedirect(__('Configuration saved successfully.', 'datefieldlimiter'), true, INFO);
-        Html::redirect(Plugin::getWebDir($plugin_name, true) . "/front/config.form.php");
-    } else {
-        Session::addMessageAfterRedirect(__('Invalid CSRF token. Please try again.', 'datefieldlimiter'), true, ERROR);
-        Html::redirect(Plugin::getWebDir($plugin_name, true) . "/front/config.form.php");
-    }
-}
-
-// Display introductory text
-echo "<div class='infos_bloc_content'>";
-echo "<p>" . __('Date Field Limiter Configuration', 'datefieldlimiter') . "</p>";
-echo "<p>" . __('Select which date fields should be limited for each GLPI profile on the Project Task page.', 'datefieldlimiter') . "</p>";
-echo "<p>" . __('The limitation makes the field read-only and is applied via JavaScript in the user's browser.', 'datefieldlimiter') . "</p>";
-echo "</div>";
-
-echo "<form name='datefieldlimiter_config' method='post' action='config.form.php'>";
-
-// THIS IS THE LINE THAT WILL BE CHANGED IN THE NEXT STEP
-// $profile_obj = new Profile();
-// $all_profiles = $profile_obj->find([]);
-error_log("DateFieldLimiter DEBUG: Profile class exists in config? " . (class_exists('Profile') ? 'Yes' : 'No'));
-error_log("DateFieldLimiter DEBUG: Attempting Profile::getAllIDs()");
-$profile_ids = Profile::getAllIDs(); // This is a static method
 $all_profiles = [];
+$profile_dropdown_options = [];
+// Using Profile::getAllIDs() might be cleaner if it exists and returns what's needed.
+// For now, let's fetch all profiles directly.
+$query = "SELECT `id`, `name` FROM `glpi_profiles` ORDER BY `name`";
+$result = $DB->query($query);
+if ($result && $DB->numrows($result) > 0) {
+    while ($data = $DB->fetchAssoc($result)) {
+        $all_profiles[$data['id']] = $data['name'];
+        $profile_dropdown_options[$data['id']] = $data['name'];
+    }
+}
 
-if (is_array($profile_ids) && !empty($profile_ids)) {
-    // Profile::getAllIDs() typically returns an array [id => name] or [id => id]
-    // We need to ensure we are iterating correctly. If IDs are keys:
-    $ids_to_fetch = array_keys($profile_ids);
-    error_log("DateFieldLimiter DEBUG: Profile IDs found (from keys): " . implode(', ', $ids_to_fetch));
+$predefined_fields = [
+    'planned_start_date' => __('Planned start date', 'datefieldlimiter'),
+    'planned_end_date'   => __('Planned end date', 'datefieldlimiter'),
+    'begin_date'         => __('Begin date', 'datefieldlimiter'), // Often used in tickets
+    'end_date'           => __('End date', 'datefieldlimiter'),   // Often used in tickets
+];
 
-    foreach ($ids_to_fetch as $pid) {
-        $profile_obj_single = new Profile();
-        if ($profile_obj_single->getFromDB($pid)) {
-            $all_profiles[] = ['id' => $pid, 'name' => $profile_obj_single->getField('name')];
-        } else {
-            error_log("DateFieldLimiter DEBUG: Failed to getFromDB for profile ID: " . $pid);
+$current_configs = [];
+$query_configs = "SELECT `profiles_id`, `field_name` FROM `glpi_plugin_datefieldlimiter_configs`";
+$result_configs = $DB->query($query_configs);
+if ($result_configs && $DB->numrows($result_configs) > 0) {
+    while ($data = $DB->fetchAssoc($result_configs)) {
+        $current_configs[$data['profiles_id']][] = $data['field_name'];
+    }
+}
+
+if (isset($_POST['save_config'])) {
+    Session::checkCSRFToken($_POST['_glpi_csrf_token']);
+
+    // Clear existing configurations first
+    $DB->query("DELETE FROM `glpi_plugin_datefieldlimiter_configs`"); // Simple approach for now
+                                                                  // In a multi-user scenario or more complex setup,
+                                                                  // might need to clear per profile if editing one at a time.
+
+    if (isset($_POST['profile_fields']) && is_array($_POST['profile_fields'])) {
+        foreach ($_POST['profile_fields'] as $profile_id => $fields) {
+            $profile_id = intval($profile_id);
+            if ($profile_id > 0) {
+                // Predefined fields
+                if (isset($fields['predefined']) && is_array($fields['predefined'])) {
+                    foreach ($fields['predefined'] as $field_name => $value) {
+                        if ($value == '1' && array_key_exists($field_name, $predefined_fields)) {
+                            $insert_data = [
+                                'profiles_id' => $profile_id,
+                                'field_name'  => $field_name
+                            ];
+                            $DB->insert('glpi_plugin_datefieldlimiter_configs', $insert_data);
+                        }
+                    }
+                }
+
+                // Custom fields
+                if (isset($fields['custom']) && !empty(trim($fields['custom']))) {
+                    $custom_field_names = array_map('trim', explode("
+", trim($fields['custom'])));
+                    foreach ($custom_field_names as $custom_field) {
+                        if (!empty($custom_field)) {
+                            $insert_data = [
+                                'profiles_id' => $profile_id,
+                                'field_name'  => $custom_field // Consider addslashes_deep or similar if not using prepared statements
+                            ];
+                             // Use $DB->insert which should handle escaping
+                            $DB->insert('glpi_plugin_datefieldlimiter_configs', $DB->escapeArray($insert_data));
+                        }
+                    }
+                }
+            }
         }
     }
-    error_log("DateFieldLimiter DEBUG: Processed profiles list: " . count($all_profiles) . " profiles fetched.");
-} else if (is_array($profile_ids) && empty($profile_ids)) {
-    error_log("DateFieldLimiter DEBUG: Profile::getAllIDs() returned an empty array.");
-} else {
-    error_log("DateFieldLimiter DEBUG: Profile::getAllIDs() did not return an array or failed. Return value: " . print_r($profile_ids, true));
+    // Redirect to avoid form resubmission
+    Html::back();
 }
-$predefined_fields = ['planned_start_date', 'planned_end_date', 'begin_date', 'end_date'];
 
-echo "<!-- DEBUG: DateFieldLimiter - Before profiles table -->";
-echo "<table class='tab_cadre_fixe glpi_table'>";
-echo "<thead><tr>";
-echo "<th>" . __('Profile') . "</th>";
-echo "<th>" . __('Predefined Fields to Restrict', 'datefieldlimiter') . "</th>";
-echo "<th>" . __('Custom Field Names to Restrict (one per line)', 'datefieldlimiter') . "</th>";
-echo "</tr></thead>";
-echo "<tbody>";
 
-if (is_array($all_profiles) && count($all_profiles) > 0) {
-    foreach ($all_profiles as $profile) {
-        $profile_id = $profile['id'];
-        $profile_name = $profile['name'];
+Html::header(
+    __('Date Field Limiter Configuration', 'datefieldlimiter'),
+    $_SERVER['PHP_SELF'],
+    'config',
+    $plugin_name,
+    'config'
+);
 
+echo "<form method='post' action='config.form.php'>";
+echo "<div class='center card' style='padding:1em;'>";
+
+echo "<h2>" . __('Date Field Limiter Configuration', 'datefieldlimiter') . "</h2>";
+echo "<p>" . __('Select which date fields should be limited for each profile.', 'datefieldlimiter') . "</p>";
+echo "<p>" . __('The limitation logic itself (e.g., not allowing past dates) will be applied via JavaScript.', 'datefieldlimiter') . "</p>";
+
+
+if (empty($all_profiles)) {
+    echo "<p class='center b'>" . __('No profiles found in GLPI.', 'datefieldlimiter') . "</p>";
+} else {
+    echo "<table class='tab_cadre_fixe responsive-table'>";
+    echo "<thead>";
+    echo "<tr>";
+    echo "<th>" . __('Profile') . "</th>";
+    echo "<th>" . __('Predefined Fields to Limit') . "</th>";
+    echo "<th>" . __('Additional Custom Field Names (one per line, input field `name` attribute)') . "</th>";
+    echo "</tr>";
+    echo "</thead>";
+    echo "<tbody>";
+
+    foreach ($all_profiles as $profile_id => $profile_name) {
         echo "<tr>";
         echo "<td>" . htmlspecialchars($profile_name, ENT_QUOTES, 'UTF-8') . "</td>";
 
         echo "<td>";
-        foreach ($predefined_fields as $field_name) {
-            $is_checked = isset($loaded_config[$profile_id][$field_name]);
+        $profile_custom_fields_text = "";
+        $profile_predefined_selected = [];
+
+        if (isset($current_configs[$profile_id])) {
+            foreach ($current_configs[$profile_id] as $field_name) {
+                if (array_key_exists($field_name, $predefined_fields)) {
+                    $profile_predefined_selected[] = $field_name;
+                } else {
+                    $profile_custom_fields_text .= $field_name . "
+";
+                }
+            }
+        }
+
+        foreach ($predefined_fields as $field_key => $field_label) {
+            $checked = in_array($field_key, $profile_predefined_selected) ? "checked" : "";
             echo "<label style='display: block; margin-bottom: 5px;'>";
-            echo "<input type='checkbox' name='profile_fields[{$profile_id}][predefined][]' value='{$field_name}'" . ($is_checked ? " checked='checked'" : "") . "> ";
-            echo htmlspecialchars($field_name, ENT_QUOTES, 'UTF-8');
+            echo "<input type='checkbox' name='profile_fields[$profile_id][predefined][$field_key]' value='1' $checked> ";
+            echo htmlspecialchars($field_label, ENT_QUOTES, 'UTF-8');
             echo "</label>";
         }
         echo "</td>";
 
         echo "<td>";
-        $custom_field_text = isset($loaded_custom_fields[$profile_id]) ? $loaded_custom_fields[$profile_id] : '';
-        echo "<textarea name='profile_fields[{$profile_id}][custom]' rows='4' cols='50' style='width:90%;'>" . htmlspecialchars($custom_field_text, ENT_QUOTES, 'UTF-8') . "</textarea>";
+        echo "<textarea name='profile_fields[$profile_id][custom]' rows='3' class='glpi_textarea' style='width:95%;'>" . htmlspecialchars(trim($profile_custom_fields_text), ENT_QUOTES, 'UTF-8') . "</textarea>";
         echo "</td>";
         echo "</tr>";
     }
-} else {
-    echo "<tr><td colspan='3'>" . __('No profiles found.') . "</td></tr>";
+
+    echo "</tbody>";
+    echo "</table>";
+
+    echo "<div class='center' style='margin-top:20px;'>";
+    echo "<input type='hidden' name='_glpi_csrf_token' value='" . Session::getNewCSRFToken() . "'>";
+    echo "<input type='submit' name='save_config' value="" . _sx('button', 'Save configuration') . "" class='submit'>";
+    echo "</div>";
+
 }
 
-echo "</tbody>";
-echo "</table>";
-echo "<!-- DEBUG: DateFieldLimiter - After profiles table, before CSRF -->";
-
-Html::displayCSRFTokenField();
-
-echo "<div class='center padded'>";
-echo "<input type='submit' name='save_config' value='" . __('Save configuration') . "' class='submit'>";
 echo "</div>";
-
 echo "</form>";
-echo "<!-- DEBUG: DateFieldLimiter - After form, before footer -->";
 
 Html::footer();
 ?>
