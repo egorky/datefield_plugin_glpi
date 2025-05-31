@@ -1,67 +1,43 @@
 $(function() {
-    // Placeholder: Define restricted users.
-    // Replace this array with actual usernames or a mechanism to fetch them.
-    const restrictedUsers = ['user_A', 'user_B', 'glpi']; // Added 'glpi' for testing if current user is 'glpi'
-
-    // Placeholder: Get current GLPI user.
-    // The following is a guess. You MUST find the actual way GLPI exposes the logged-in username.
-    // Inspect global JavaScript variables like `glpi` or `glpi_user` in your browser's developer console on a GLPI page.
-    // For example, if GLPI sets `var glpi_username = 'current_user_login';`, then use that.
-    var currentUser = 'unknown_user'; // Default
-    if (typeof glpi_user !== 'undefined' && glpi_user.name) { // Example: Check for a global glpi_user object
-        currentUser = glpi_user.name;
-    } else if (typeof glpi !== 'undefined' && glpi.user_name) { // Example: Check for a global glpi object
-        currentUser = glpi.user_name;
-    } else {
-        // Fallback: Try to find username from a common GLPI element if available (e.g., user dropdown)
-        // This is highly dependent on GLPI version and theme.
-        // THIS IS A GUESS AND MIGHT NOT WORK.
-        var userNameFromDOM = $('#c_user .profile-data > div > strong').text().trim();
-        if (userNameFromDOM) {
-            currentUser = userNameFromDOM;
-        }
-        console.warn('DateFieldLimiter: Could not definitively determine current GLPI user. Using:', currentUser, '. Please verify and update user detection logic.');
-    }
-    console.log('DateFieldLimiter: Current user identified as:', currentUser);
-
-
     function limitDateFields() {
-        console.log('DateFieldLimiter: limitDateFields called for user:', currentUser);
-        if (restrictedUsers.includes(currentUser)) {
-            console.log('DateFieldLimiter: User', currentUser, 'is restricted. Attempting to disable date fields.');
+        // Check if the global variables from PHP are defined
+        if (typeof glpiPluginDateLimiterUserProfileId === 'undefined' || typeof glpiPluginDateLimiterBlockedFields === 'undefined') {
+            console.warn('DateFieldLimiter: Essential configuration variables (glpiPluginDateLimiterUserProfileId or glpiPluginDateLimiterBlockedFields) are not defined. Aborting.');
+            return;
+        }
 
-            // Placeholder: Identify Date Fields.
-            // You MUST inspect the projecttask.form.php HTML to find the correct selectors for your date fields.
-            // Use your browser's developer tools (right-click on a date field -> Inspect).
-            // Common examples (uncomment and adapt what seems relevant):
-            // const dateFields = $('input[type="date"]');
-            // const dateFields = $('.hasDatepicker'); // If GLPI uses jQuery UI Datepicker with this class
-            // const dateFields = $('input[name="date"], input[name="date_mod"], input[name="date_creation"]'); // Common names in GLPI
-            const dateFields = $(
-                'input[name^="planned_start_date"], input[name^="planned_end_date"],' + // GLPI 10 tasks
-                'input[name="begin_date"], input[name="end_date"],' + // Older GLPI or other objects
-                'input[id$="_date"], input[id^="date_"]' // General ID patterns
-            );
+        if (!Array.isArray(glpiPluginDateLimiterBlockedFields) || glpiPluginDateLimiterBlockedFields.length === 0) {
+            console.log('DateFieldLimiter: No fields configured for restriction for profile ID:', glpiPluginDateLimiterUserProfileId, '(or profile ID not applicable). No action taken.');
+            return;
+        }
 
+        console.log('DateFieldLimiter: Applying restrictions for profile ID:', glpiPluginDateLimiterUserProfileId, 'on fields:', glpiPluginDateLimiterBlockedFields.join(', '));
 
-            if (dateFields.length > 0) {
-                console.log('DateFieldLimiter: Found', dateFields.length, 'date fields to restrict.');
-                dateFields.each(function() {
+        glpiPluginDateLimiterBlockedFields.forEach(function(fieldName) {
+            // Construct the selector for the input field by its name attribute
+            // Important: The fieldName stored in the DB must exactly match the 'name' attribute of the input field.
+            const fieldSelector = 'input[name="' + fieldName + '"]';
+            const $field = $(fieldSelector);
+
+            if ($field.length > 0) {
+                $field.each(function() { // Use .each() in case multiple elements somehow share the same name (though unlikely for unique form fields)
                     $(this).prop('readonly', true);
                     $(this).css('background-color', '#eee'); // Visual cue
-                    // Optionally, disable the field. Readonly is often better for UX as the date is still visible.
-                    // $(this).prop('disabled', true);
-                    console.log('DateFieldLimiter: Restricted field:', $(this).attr('name') || $(this).attr('id'));
 
-                    // Attempt to disable the associated datepicker icon, if any
-                    $(this).next('.date-icon, .ui-datepicker-trigger').css('pointer-events', 'none').css('opacity', '0.5');
+                    console.log('DateFieldLimiter: Restricted field with name:', fieldName);
+
+                    // Attempt to disable the associated datepicker icon (common in GLPI)
+                    // This selector might need adjustment based on GLPI's specific structure for datepicker icons.
+                    // It looks for common classes or elements immediately following the input.
+                    $(this).nextAll('img.ui-datepicker-trigger, span.date-icon, button.date-icon, a.date-icon').first()
+                           .css({'pointer-events': 'none', 'opacity': '0.5'});
                 });
             } else {
-                console.warn('DateFieldLimiter: No date fields found with the current selectors for restricted user. Check selectors.');
+                // This is not necessarily an error, as a field might not be present on all task forms
+                // or could be a misconfiguration (field name doesn't exist on this page).
+                // console.log('DateFieldLimiter: Field with name "' + fieldName + '" not found on this page.');
             }
-        } else {
-            console.log('DateFieldLimiter: User', currentUser, 'is not in the restricted list. No action taken.');
-        }
+        });
     }
 
     // Ensure the function runs on initial page load and when GLPI tabs are loaded/reloaded.
