@@ -39,7 +39,7 @@ if ($result_configs && $DB->numrows($result_configs) > 0) {
 }
 
 if (isset($_POST['save_config'])) {
-    Session::checkCentralToken($_POST['_glpi_csrf_token']);
+    check_CSRF();
 
     // Clear existing configurations first
     $DB->query("DELETE FROM `glpi_plugin_datefieldlimiter_configs`"); // Simple approach for now
