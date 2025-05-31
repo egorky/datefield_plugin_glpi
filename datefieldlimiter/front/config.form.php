@@ -170,8 +170,9 @@ if (empty($all_profiles)) {
     echo "</table>";
 
     echo "<div class='center' style='margin-top:20px;'>";
+    Session::cleanCSRFTokens(); // Clean first to make space
     $form_csrf_token = Session::getNewCSRFToken();
-    error_log("DateFieldLimiter CSRF DEBUG - Token generated for form input field: " . $form_csrf_token);
+    error_log("DateFieldLimiter CSRF DEBUG - Token generated for form input field after clean: " . $form_csrf_token);
     echo "<input type='hidden' name='_glpi_csrf_token' value='" . htmlspecialchars($form_csrf_token, ENT_QUOTES, 'UTF-8') . "'>";
     $save_button_text = _sx('button', 'Save configuration');
     echo "<input type='submit' name='save_config' value='" . htmlspecialchars($save_button_text, ENT_QUOTES, 'UTF-8') . "' class='submit'>";
