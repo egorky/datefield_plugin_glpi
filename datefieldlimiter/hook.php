@@ -1,23 +1,7 @@
 <?php
 
-/**
- * Plugin installation process
- *
- * @return boolean
- */
-function plugin_datefieldlimiter_install() {
-    // Perform any setup needed on plugin installation
-    return true;
-}
-
-/**
- * Plugin uninstallation process
- *
- * @return boolean
- */
-function plugin_datefieldlimiter_uninstall() {
-    // Perform any cleanup needed on plugin uninstallation
-    return true;
-}
+// This file is intentionally left sparse.
+// Runtime hooks for the Date Field Limiter plugin would be defined here.
+// Installation and uninstallation hooks are managed in setup.php.
 
 ?>

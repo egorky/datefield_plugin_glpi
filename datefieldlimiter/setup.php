@@ -24,7 +24,7 @@ function plugin_init_datefieldlimiter() {
     global $DB; // Make $DB available in this function
     $PLUGIN_HOOKS['csrf_compliant']['datefieldlimiter'] = true;
 
-    if (strpos($_SERVER['REQUEST_URI'], 'projecttask.form.php') !== false) {
+    if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'projecttask.form.php') !== false) {
         $user_profile_id = isset($_SESSION['glpiactiveprofile']['id']) ? intval($_SESSION['glpiactiveprofile']['id']) : null;
         $blocked_fields_for_js = [];
 
