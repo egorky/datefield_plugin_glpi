@@ -170,7 +170,7 @@ if (empty($all_profiles)) {
     echo "</table>";
 
     echo "<div class='center' style='margin-top:20px;'>";
-    $form_csrf_token = Session::getNewCSRFToken(true);
+    $form_csrf_token = Session::getNewCSRFToken(true, '_glpi_csrf_token');
     error_log("DateFieldLimiter CSRF DEBUG - Token generated for form input field (standalone): " . $form_csrf_token);
     echo "<input type='hidden' name='_glpi_csrf_token' value='" . htmlspecialchars($form_csrf_token, ENT_QUOTES, 'UTF-8') . "'>";
     $save_button_text = _sx('button', 'Save configuration');
